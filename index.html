@@ -4,13 +4,22 @@
 <meta charset="UTF-8">
 <title>GitMemo</title>
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js"></script>
+
+<style>
+body { font-family: sans-serif; padding: 10px; }
+input, button { font-size: 16px; margin: 5px 0; }
+li { margin-bottom: 8px; }
+</style>
+
 </head>
 <body>
 
 <h2>イベント追加</h2>
 
-<input id="title" placeholder="タイトル"><br><br>
-<input id="datetime" type="datetime-local"><br><br>
+<input id="title" placeholder="タイトル"><br>
+<input id="datetime" type="datetime-local"><br>
 <button onclick="addEvent()">追加</button>
 
 <hr>
@@ -19,16 +28,24 @@
 <ul id="list"></ul>
 
 <script>
-const SUPABASE_URL = "ここにProject URL";
-const API_KEY = "ここにanon public key";
+const SUPABASE_URL = "https://bkgympxaycqbekucvssg.supabase.co";
+const API_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJrZ3ltcHhheWNxYmVrdWN2c3NnIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzY4ODc3NjcsImV4cCI6MjA5MjQ2Mzc2N30.sT6fukSYmRWPQzsTkH1iYe91qyH8CLIVijX_Is8w1uo";
 
+const client = supabase.createClient(SUPABASE_URL, API_KEY);
+
+// =========================
+// 一覧取得
+// =========================
 async function loadEvents() {
-    const res = await fetch(`${SUPABASE_URL}/rest/v1/events?select=*`, {
-        headers: {
-            "apikey": API_KEY,
-            "Authorization": "Bearer " + API_KEY
+    const res = await fetch(
+        `${SUPABASE_URL}/rest/v1/events?select=*&order=start_datetime.asc`,
+        {
+            headers: {
+                "apikey": API_KEY,
+                "Authorization": "Bearer " + API_KEY
+            }
         }
-    });
+    );
 
     const data = await res.json();
 
@@ -48,11 +65,19 @@ async function loadEvents() {
     });
 }
 
+// =========================
+// 追加
+// =========================
 async function addEvent() {
     const title = document.getElementById("title").value;
     const dt = document.getElementById("datetime").value;
 
-    const id = "id_" + Date.now();
+    if (!title || !dt) {
+        alert("入力必須");
+        return;
+    }
+
+    const id = crypto.randomUUID();
 
     await fetch(`${SUPABASE_URL}/rest/v1/events`, {
         method: "POST",
@@ -72,7 +97,12 @@ async function addEvent() {
     loadEvents();
 }
 
+// =========================
+// 削除
+// =========================
 async function deleteEvent(id) {
+    if (!confirm("削除する？")) return;
+
     await fetch(`${SUPABASE_URL}/rest/v1/events?id=eq.${id}`, {
         method: "DELETE",
         headers: {
@@ -84,6 +114,20 @@ async function deleteEvent(id) {
     loadEvents();
 }
 
+// =========================
+// リアルタイム更新
+// =========================
+client
+  .channel('events')
+  .on('postgres_changes',
+      { event: '*', schema: 'public', table: 'events' },
+      payload => {
+          loadEvents();
+      }
+  )
+  .subscribe();
+
+// 初回ロード
 loadEvents();
 </script>
 
