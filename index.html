@@ -24,23 +24,23 @@ li { margin-bottom: 8px; }
 
 <hr>
 
-<h2>一覧</h2>
+<h2>一覧（新しい順）</h2>
 <ul id="list"></ul>
 
 <script>
 const SUPABASE_URL = "https://bkgympxaycqbekucvssg.supabase.co";
-const API_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJrZ3ltcHhheWNxYmVrdWN2c3NnIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzY4ODc3NjcsImV4cCI6MjA5MjQ2Mzc2N30.sT6fukSYmRWPQzsTkH1iYe91qyH8CLIVijX_Is8w1uo"; // 必要に応じて差し替え
+const API_KEY = "YOUR_API_KEY"; // 必要に応じて差し替え
 
 const client = supabase.createClient(SUPABASE_URL, API_KEY);
 
 // =========================
-// Rawフォーマット生成（最重要）
+// Rawフォーマット生成
 // =========================
 function formatRaw(dt, title) {
     const d = new Date(dt);
 
     const year = d.getFullYear();
-    const eraYear = year - 2018; // 令和基準
+    const eraYear = year - 2018; // 令和
 
     const m = String(d.getMonth() + 1).padStart(2, "0");
     const day = String(d.getDate()).padStart(2, "0");
@@ -51,11 +51,11 @@ function formatRaw(dt, title) {
 }
 
 // =========================
-// 一覧取得
+// 一覧取得（新しい順）
 // =========================
 async function loadEvents() {
     const res = await fetch(
-        `${SUPABASE_URL}/rest/v1/events?select=*&order=start_datetime.asc`,
+        `${SUPABASE_URL}/rest/v1/events?select=*&order=start_datetime.desc,id.desc`,
         {
             headers: {
                 "apikey": API_KEY,
@@ -72,7 +72,7 @@ async function loadEvents() {
     data.forEach(e => {
         const li = document.createElement("li");
 
-        // Rawをそのまま表示（完全再現）
+        // Rawをそのまま表示
         li.textContent = e.raw;
 
         const btn = document.createElement("button");
@@ -97,9 +97,6 @@ async function addEvent() {
     }
 
     const raw = formatRaw(dt, title);
-
-    // ★ IDはRawベースで生成するのが理想だが、
-    // JS側で完全一致させるのが難しければUUIDでも可（PC側で再計算される）
     const id = crypto.randomUUID();
 
     await fetch(`${SUPABASE_URL}/rest/v1/events`, {
