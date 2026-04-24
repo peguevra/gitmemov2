@@ -9,12 +9,12 @@
 
 <style>
 body {
-    font-family: sans-serif;
     margin: 0;
+    font-family: sans-serif;
     background: #f5f5f5;
 }
 
-/* 上部固定エリア */
+/* 上部固定 */
 .topbar {
     position: sticky;
     top: 0;
@@ -27,21 +27,48 @@ body {
 .header {
     font-size: 20px;
     font-weight: bold;
+    margin-bottom: 8px;
 }
 
-/* 入力 */
+/* 入力グリッド */
+.input-area {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 6px;
+}
+
+/* 入力共通 */
 input {
     width: 100%;
-    font-size: 14px;
-    padding: 6px;
-    margin: 4px 0;
+    font-size: 16px; /* ★ズーム防止 */
+    padding: 8px;
+    border-radius: 8px;
+    border: 1px solid #ccc;
     box-sizing: border-box;
 }
 
+/* datetime専用 */
+.datetime-wrap {
+    width: 100%;
+    overflow: hidden;
+}
+
+.datetime-wrap input {
+    width: 100%;
+    min-width: 0; /* ★これ重要 */
+}
+
 /* ボタン */
+.button-row {
+    display: flex;
+    gap: 6px;
+    margin-top: 4px;
+}
+
 button {
-    font-size: 14px;
-    padding: 6px 10px;
+    flex: 1;
+    font-size: 15px;
+    padding: 8px;
     border-radius: 8px;
     border: none;
 }
@@ -54,7 +81,6 @@ button {
 .delete-btn {
     background: #dc3545;
     color: white;
-    margin-left: 6px;
 }
 
 /* リスト */
@@ -65,17 +91,17 @@ button {
 /* カード */
 .card {
     display: flex;
-    align-items: center;
     background: white;
     padding: 10px;
     margin-bottom: 8px;
     border-radius: 10px;
 }
 
-/* チェック固定領域 */
+/* チェック固定 */
 .check-area {
-    width: 28px; /* 固定 */
+    width: 28px;
     display: flex;
+    align-items: center;
     justify-content: center;
 }
 
@@ -106,49 +132,50 @@ button {
     font-size: 14px;
 }
 </style>
-
 </head>
+
 <body>
 
 <div class="topbar">
     <div class="header">GitMemo</div>
 
-    <input id="title" placeholder="タイトル">
-    <input id="datetime" type="datetime-local">
+    <div class="input-area">
+        <input id="title" placeholder="タイトル">
 
-    <button class="add-btn" onclick="addEvent()">追加</button>
-    <button class="delete-btn" onclick="toggleDeleteMode()" id="deleteBtn">削除モード</button>
+        <div class="datetime-wrap">
+            <input id="datetime" type="datetime-local">
+        </div>
+
+        <div class="button-row">
+            <button class="add-btn" onclick="addEvent()">追加</button>
+            <button class="delete-btn" onclick="toggleDeleteMode()" id="deleteBtn">削除モード</button>
+        </div>
+    </div>
 </div>
 
 <div id="list"></div>
 
 <script>
-const SUPABASE_URL = "https://bkgympxaycqbekucvssg.supabase.co";
-const API_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJrZ3ltcHhheWNxYmVrdWN2c3NnIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzY4ODc3NjcsImV4cCI6MjA5MjQ2Mzc2N30.sT6fukSYmRWPQzsTkH1iYe91qyH8CLIVijX_Is8w1uo";
+const SUPABASE_URL = "YOUR_URL";
+const API_KEY = "YOUR_API_KEY";
 
 const client = supabase.createClient(SUPABASE_URL, API_KEY);
 
 let deleteMode = false;
 
-// Raw生成
 function formatRaw(dt, title) {
     const d = new Date(dt);
-    const year = d.getFullYear();
-    const eraYear = year - 2018;
-
-    const m = String(d.getMonth() + 1).padStart(2, "0");
-    const day = String(d.getDate()).padStart(2, "0");
-    const h = String(d.getHours()).padStart(2, "0");
-    const min = String(d.getMinutes()).padStart(2, "0");
-
-    return `R${eraYear}.${m}.${day} ${h}:${min} ${title}`;
+    const y = d.getFullYear() - 2018;
+    const m = String(d.getMonth()+1).padStart(2,"0");
+    const da = String(d.getDate()).padStart(2,"0");
+    const h = String(d.getHours()).padStart(2,"0");
+    const mi = String(d.getMinutes()).padStart(2,"0");
+    return `R${y}.${m}.${da} ${h}:${mi} ${title}`;
 }
 
-// パース
 function parseRaw(raw) {
     const m = raw.match(/^R(\d+)\.(\d{2})\.(\d{2}) (\d{2}:\d{2}) (.+)$/);
     if (!m) return null;
-
     return {
         date: `${2018 + parseInt(m[1])}/${m[2]}/${m[3]}`,
         time: m[4],
@@ -156,14 +183,13 @@ function parseRaw(raw) {
     };
 }
 
-// 一覧
 async function loadEvents() {
     const res = await fetch(
         `${SUPABASE_URL}/rest/v1/events?select=*&order=start_datetime.desc,id.desc`,
         {
             headers: {
-                "apikey": API_KEY,
-                "Authorization": "Bearer " + API_KEY
+                apikey: API_KEY,
+                Authorization: "Bearer " + API_KEY
             }
         }
     );
@@ -208,11 +234,9 @@ async function loadEvents() {
     });
 }
 
-// 追加
 async function addEvent() {
     const title = document.getElementById("title").value.trim();
     const dt = document.getElementById("datetime").value;
-
     if (!title || !dt) return alert("入力必須");
 
     const raw = formatRaw(dt, title);
@@ -220,8 +244,8 @@ async function addEvent() {
     await fetch(`${SUPABASE_URL}/rest/v1/events`, {
         method: "POST",
         headers: {
-            "apikey": API_KEY,
-            "Authorization": "Bearer " + API_KEY,
+            apikey: API_KEY,
+            Authorization: "Bearer " + API_KEY,
             "Content-Type": "application/json"
         },
         body: JSON.stringify({
@@ -235,7 +259,6 @@ async function addEvent() {
     loadEvents();
 }
 
-// モード切替
 function toggleDeleteMode() {
     const btn = document.getElementById("deleteBtn");
 
@@ -249,26 +272,19 @@ function toggleDeleteMode() {
     loadEvents();
 }
 
-// 削除
 async function executeDelete() {
     const checks = document.querySelectorAll(".check:checked");
 
-    if (checks.length === 0) {
-        resetMode();
-        return;
-    }
+    if (checks.length === 0) return resetMode();
 
-    if (!confirm("削除しますか？")) {
-        resetMode();
-        return;
-    }
+    if (!confirm("削除しますか？")) return resetMode();
 
     for (const c of checks) {
         await fetch(`${SUPABASE_URL}/rest/v1/events?id=eq.${c.dataset.id}`, {
             method: "DELETE",
             headers: {
-                "apikey": API_KEY,
-                "Authorization": "Bearer " + API_KEY
+                apikey: API_KEY,
+                Authorization: "Bearer " + API_KEY
             }
         });
     }
@@ -282,7 +298,6 @@ function resetMode() {
     document.getElementById("deleteBtn").textContent = "削除モード";
 }
 
-// realtime
 client.channel('events')
   .on('postgres_changes',
       { event: '*', schema: 'public', table: 'events' },
