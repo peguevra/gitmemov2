@@ -8,9 +8,45 @@
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js"></script>
 
 <style>
-body { font-family: sans-serif; padding: 10px; }
-input, button { font-size: 16px; margin: 5px 0; }
-li { margin-bottom: 8px; }
+body {
+    font-family: sans-serif;
+    padding: 10px;
+    background: #f5f5f5;
+}
+
+input, button {
+    font-size: 16px;
+    margin: 5px 0;
+}
+
+.card {
+    background: white;
+    padding: 12px;
+    margin-bottom: 10px;
+    border-radius: 10px;
+    box-shadow: 0 2px 6px rgba(0,0,0,0.1);
+}
+
+.date {
+    font-weight: bold;
+    font-size: 14px;
+    color: #555;
+}
+
+.time {
+    font-size: 18px;
+    font-weight: bold;
+    margin-top: 4px;
+}
+
+.title {
+    margin-top: 6px;
+    font-size: 16px;
+}
+
+.delete-btn {
+    margin-top: 8px;
+}
 </style>
 
 </head>
@@ -24,12 +60,12 @@ li { margin-bottom: 8px; }
 
 <hr>
 
-<h2>一覧（新しい順）</h2>
-<ul id="list"></ul>
+<h2>一覧</h2>
+<div id="list"></div>
 
 <script>
 const SUPABASE_URL = "https://bkgympxaycqbekucvssg.supabase.co";
-const API_KEY = "YOUR_API_KEY"; // 必要に応じて差し替え
+const API_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJrZ3ltcHhheWNxYmVrdWN2c3NnIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzY4ODc3NjcsImV4cCI6MjA5MjQ2Mzc2N30.sT6fukSYmRWPQzsTkH1iYe91qyH8CLIVijX_Is8w1uo";
 
 const client = supabase.createClient(SUPABASE_URL, API_KEY);
 
@@ -40,7 +76,7 @@ function formatRaw(dt, title) {
     const d = new Date(dt);
 
     const year = d.getFullYear();
-    const eraYear = year - 2018; // 令和
+    const eraYear = year - 2018;
 
     const m = String(d.getMonth() + 1).padStart(2, "0");
     const day = String(d.getDate()).padStart(2, "0");
@@ -51,7 +87,24 @@ function formatRaw(dt, title) {
 }
 
 // =========================
-// 一覧取得（新しい順）
+// Rawを分解（表示用）
+// =========================
+function parseRaw(raw) {
+    // R6.04.01 10:00 会議
+    const match = raw.match(/^R(\d+)\.(\d{2})\.(\d{2}) (\d{2}:\d{2}) (.+)$/);
+    if (!match) return null;
+
+    const year = 2018 + parseInt(match[1]);
+
+    return {
+        date: `${year}/${match[2]}/${match[3]}`,
+        time: match[4],
+        title: match[5]
+    };
+}
+
+// =========================
+// 一覧取得
 // =========================
 async function loadEvents() {
     const res = await fetch(
@@ -70,17 +123,29 @@ async function loadEvents() {
     list.innerHTML = "";
 
     data.forEach(e => {
-        const li = document.createElement("li");
+        const parsed = parseRaw(e.raw);
 
-        // Rawをそのまま表示
-        li.textContent = e.raw;
+        const card = document.createElement("div");
+        card.className = "card";
+
+        if (parsed) {
+            card.innerHTML = `
+                <div class="date">${parsed.date}</div>
+                <div class="time">${parsed.time}</div>
+                <div class="title">${parsed.title}</div>
+            `;
+        } else {
+            // フォールバック
+            card.textContent = e.raw;
+        }
 
         const btn = document.createElement("button");
         btn.textContent = "削除";
+        btn.className = "delete-btn";
         btn.onclick = () => deleteEvent(e.id);
 
-        li.appendChild(btn);
-        list.appendChild(li);
+        card.appendChild(btn);
+        list.appendChild(card);
     });
 }
 
@@ -114,7 +179,6 @@ async function addEvent() {
         })
     });
 
-    // 入力クリア
     document.getElementById("title").value = "";
     document.getElementById("datetime").value = "";
 
@@ -138,21 +202,16 @@ async function deleteEvent(id) {
     loadEvents();
 }
 
-// =========================
-// リアルタイム更新
-// =========================
+// リアルタイム
 client
   .channel('events')
   .on(
       'postgres_changes',
       { event: '*', schema: 'public', table: 'events' },
-      payload => {
-          loadEvents();
-      }
+      () => loadEvents()
   )
   .subscribe();
 
-// 初回ロード
 loadEvents();
 </script>
 
