@@ -10,44 +10,56 @@
 <style>
 body {
     font-family: sans-serif;
-    padding: 10px;
+    margin: 0;
     background: #f5f5f5;
 }
 
-/* ヘッダ */
+/* 上部固定エリア */
+.topbar {
+    position: sticky;
+    top: 0;
+    background: white;
+    padding: 10px;
+    z-index: 10;
+    box-shadow: 0 2px 6px rgba(0,0,0,0.1);
+}
+
 .header {
-    font-size: 22px;
+    font-size: 20px;
     font-weight: bold;
-    margin-bottom: 10px;
 }
 
 /* 入力 */
 input {
-    font-size: 16px;
-    margin: 5px 0;
     width: 100%;
+    font-size: 14px;
+    padding: 6px;
+    margin: 4px 0;
+    box-sizing: border-box;
 }
 
-/* ボタン共通 */
+/* ボタン */
 button {
-    font-size: 16px;
-    padding: 8px 12px;
+    font-size: 14px;
+    padding: 6px 10px;
     border-radius: 8px;
     border: none;
-    cursor: pointer;
 }
 
-/* 追加ボタン */
 .add-btn {
     background: #007bff;
     color: white;
 }
 
-/* 削除モード */
-.delete-mode-btn {
+.delete-btn {
     background: #dc3545;
     color: white;
-    margin-left: 8px;
+    margin-left: 6px;
+}
+
+/* リスト */
+#list {
+    padding: 10px;
 }
 
 /* カード */
@@ -56,14 +68,18 @@ button {
     align-items: center;
     background: white;
     padding: 10px;
-    margin-bottom: 10px;
+    margin-bottom: 8px;
     border-radius: 10px;
-    box-shadow: 0 2px 6px rgba(0,0,0,0.1);
 }
 
-/* チェック */
+/* チェック固定領域 */
+.check-area {
+    width: 28px; /* 固定 */
+    display: flex;
+    justify-content: center;
+}
+
 .check {
-    margin-right: 10px;
     display: none;
 }
 
@@ -77,32 +93,32 @@ button {
 }
 
 .date {
-    font-size: 13px;
+    font-size: 12px;
     color: #666;
 }
 
 .time {
-    font-size: 18px;
+    font-size: 17px;
     font-weight: bold;
 }
 
 .title {
-    font-size: 15px;
+    font-size: 14px;
 }
 </style>
 
 </head>
 <body>
 
-<div class="header">GitMemo</div>
+<div class="topbar">
+    <div class="header">GitMemo</div>
 
-<input id="title" placeholder="タイトル">
-<input id="datetime" type="datetime-local">
+    <input id="title" placeholder="タイトル">
+    <input id="datetime" type="datetime-local">
 
-<button class="add-btn" onclick="addEvent()">追加</button>
-<button class="delete-mode-btn" onclick="toggleDeleteMode()" id="deleteBtn">削除モード</button>
-
-<hr>
+    <button class="add-btn" onclick="addEvent()">追加</button>
+    <button class="delete-btn" onclick="toggleDeleteMode()" id="deleteBtn">削除モード</button>
+</div>
 
 <div id="list"></div>
 
@@ -128,7 +144,7 @@ function formatRaw(dt, title) {
     return `R${eraYear}.${m}.${day} ${h}:${min} ${title}`;
 }
 
-// Rawパース
+// パース
 function parseRaw(raw) {
     const m = raw.match(/^R(\d+)\.(\d{2})\.(\d{2}) (\d{2}:\d{2}) (.+)$/);
     if (!m) return null;
@@ -153,7 +169,6 @@ async function loadEvents() {
     );
 
     const data = await res.json();
-
     const list = document.getElementById("list");
     list.innerHTML = "";
 
@@ -162,13 +177,17 @@ async function loadEvents() {
 
         const card = document.createElement("div");
         card.className = "card";
-
         if (deleteMode) card.classList.add("delete-mode");
+
+        const checkArea = document.createElement("div");
+        checkArea.className = "check-area";
 
         const check = document.createElement("input");
         check.type = "checkbox";
         check.className = "check";
         check.dataset.id = e.id;
+
+        checkArea.appendChild(check);
 
         const content = document.createElement("div");
         content.className = "content";
@@ -183,7 +202,7 @@ async function loadEvents() {
             content.textContent = e.raw;
         }
 
-        card.appendChild(check);
+        card.appendChild(checkArea);
         card.appendChild(content);
         list.appendChild(card);
     });
@@ -216,7 +235,7 @@ async function addEvent() {
     loadEvents();
 }
 
-// 削除モード切替
+// モード切替
 function toggleDeleteMode() {
     const btn = document.getElementById("deleteBtn");
 
@@ -230,19 +249,17 @@ function toggleDeleteMode() {
     loadEvents();
 }
 
-// 削除実行
+// 削除
 async function executeDelete() {
     const checks = document.querySelectorAll(".check:checked");
 
     if (checks.length === 0) {
-        deleteMode = false;
-        document.getElementById("deleteBtn").textContent = "削除モード";
+        resetMode();
         return;
     }
 
     if (!confirm("削除しますか？")) {
-        deleteMode = false;
-        document.getElementById("deleteBtn").textContent = "削除モード";
+        resetMode();
         return;
     }
 
@@ -256,13 +273,16 @@ async function executeDelete() {
         });
     }
 
-    deleteMode = false;
-    document.getElementById("deleteBtn").textContent = "削除モード";
-
+    resetMode();
     loadEvents();
 }
 
-// リアルタイム
+function resetMode() {
+    deleteMode = false;
+    document.getElementById("deleteBtn").textContent = "削除モード";
+}
+
+// realtime
 client.channel('events')
   .on('postgres_changes',
       { event: '*', schema: 'public', table: 'events' },
